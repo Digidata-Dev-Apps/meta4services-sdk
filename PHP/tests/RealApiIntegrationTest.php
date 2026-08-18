@@ -51,6 +51,7 @@ final class RealApiIntegrationTest extends TestCase
     public function testListFilesAgainstRealApi(): void
     {
         $client = $this->buildClient();
+        $client->login();
 
         $files = $client->listFiles();
 
@@ -62,6 +63,7 @@ final class RealApiIntegrationTest extends TestCase
     public function testGetFirstFileAgainstRealApi(): void
     {
         $client = $this->buildClient();
+        $client->login();
         $files = $client->listFiles();
 
         if ($files->items() === []) {
@@ -73,6 +75,58 @@ final class RealApiIntegrationTest extends TestCase
 
         $this->assertSame($first->uuid, $file->uuid);
         $this->assertNotSame('', $file->displayName);
+    }
+
+    public function testUploadListDownloadAndShowAgainstRealApi(): void
+    {
+        $client = $this->buildClient();
+        $client->login();
+        $fixture = __DIR__ . '/../examples/image_test.jpeg';
+        $displayName = 'sdk-integration-' . bin2hex(random_bytes(8)) . '.jpeg';
+        $destination = tempnam(sys_get_temp_dir(), 'cloudservices-download-');
+        $uploadedFileUuid = null;
+
+        $this->assertFileExists($fixture);
+        $this->assertNotFalse($destination);
+
+        try {
+            $upload = $client->upload(
+                file: $fixture,
+                storagePath: 'sdk-integration-tests',
+                displayName: $displayName,
+                metadata: ['test' => 'php-sdk-integration'],
+            );
+            $uploadedFileUuid = $upload->fileUuid;
+
+            $this->assertNotSame('', $uploadedFileUuid);
+
+            $listedFiles = $client->listFiles();
+
+            $this->assertInstanceOf(PaginatedResult::class, $listedFiles);
+            $this->assertIsArray($listedFiles->items());
+
+            $file = $client->getFile($uploadedFileUuid);
+
+            $this->assertSame($uploadedFileUuid, $file->uuid);
+            $this->assertSame($displayName, $file->displayName);
+
+            $download = $client->getDownload($uploadedFileUuid);
+
+            $this->assertArrayHasKey('url', $download);
+            $this->assertNotSame('', $download['url']);
+
+            $client->downloadTo($uploadedFileUuid, $destination);
+
+            $this->assertFileEquals($fixture, $destination);
+        } finally {
+            if ($uploadedFileUuid !== null) {
+                $client->deleteFile($uploadedFileUuid);
+            }
+
+            if ($destination !== false && file_exists($destination)) {
+                unlink($destination);
+            }
+        }
     }
 
     public function testInvalidCredentialsFailAgainstRealApi(): void

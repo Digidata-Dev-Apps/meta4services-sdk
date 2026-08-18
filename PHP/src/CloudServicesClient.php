@@ -83,11 +83,16 @@ final class CloudServicesClient
     {
         try {
             $response = $this->httpClient->post($this->buildAbsoluteUri('/auth/login'), [
+                'http_errors' => false,
                 'json' => [
                     'email' => $this->email,
                     'password' => $this->password,
                 ],
             ]);
+
+            if ($response->getStatusCode() >= 400) {
+                throw $this->mapToException($response);
+            }
 
             $decoded = $this->decodeJson($response);
             $data = $decoded['data'] ?? [];
@@ -132,10 +137,15 @@ final class CloudServicesClient
 
         try {
             $response = $this->httpClient->post($this->buildAbsoluteUri('/auth/refresh'), [
+                'http_errors' => false,
                 'json' => [
                     'refresh_token' => $this->tokenSet->refreshToken(),
                 ],
             ]);
+
+            if ($response->getStatusCode() >= 400) {
+                throw $this->mapToException($response);
+            }
 
             $decoded = $this->decodeJson($response);
             $data = $decoded['data'] ?? [];
@@ -329,7 +339,7 @@ final class CloudServicesClient
             $requestOptions['headers']['Content-Type'] = 'application/json';
         }
 
-        if ($this->tokenSet !== null && ! isset($requestOptions['multipart'])) {
+        if ($this->tokenSet !== null) {
             $requestOptions['headers']['Authorization'] = 'Bearer ' . $this->tokenSet->accessToken();
         }
 

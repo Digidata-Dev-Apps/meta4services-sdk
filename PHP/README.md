@@ -8,7 +8,51 @@ SDK PHP para integração com a Cloud Services API, focado em operações de arq
 - Composer
 - Guzzle HTTP
 
-## Instalação
+### Instalação pela branch do GitHub
+
+Como o pacote PHP está no diretório `PHP` do repositório, adicione a definição abaixo ao `composer.json` da aplicação:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "meta4services/cloud-services-sdk",
+                "version": "dev-main",
+                "source": {
+                    "type": "git",
+                    "url": "https://github.com/Digidata-Dev-Apps/meta4services-sdk.git",
+                    "reference": "dev"
+                },
+                "require": {
+                    "php": "^8.1",
+                    "guzzlehttp/guzzle": "^7.0",
+                    "psr/log": "^1.0 || ^2.0 || ^3.0"
+                },
+                "autoload": {
+                    "psr-4": {
+                        "Meta4Services\\CloudServices\\": "PHP/src/"
+                    }
+                }
+            }
+        }
+    ],
+    "require": {
+        "meta4services/cloud-services-sdk": "dev-main"
+    }
+}
+```
+
+Depois, execute:
+
+```bash
+composer update meta4services/cloud-services-sdk
+```
+
+**OBS:** Após publicação no packagist o mesmo não requer mais configuração no composer.json das aplicações que irão utilizar o SDK.
+
+## Instalação via composer quando publicado.
 
 ```bash
 composer require meta4services/cloud-services-sdk
