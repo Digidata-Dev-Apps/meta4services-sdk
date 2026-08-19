@@ -13,6 +13,7 @@ final class File
         public readonly string $mimeType,
         public readonly string $extension,
         public readonly array $size,
+        public readonly string $path,
         public readonly string $status,
         public readonly int $versionsCount,
         public readonly ?string $createdAt = null,

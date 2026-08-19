@@ -529,6 +529,7 @@ final class CloudServicesClient
             mimeType: (string) ($data['mime_type'] ?? ''),
             extension: (string) ($data['extension'] ?? ''),
             size: is_array($size) ? $size : [],
+            path: (string) ($data['path'] ?? ''),
             status: (string) ($data['status'] ?? 'unknown'),
             versionsCount: (int) ($data['versions_count'] ?? 0),
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
