@@ -306,54 +306,50 @@ final class CloudServicesClient
             ));
         }
 
-        try {
-            $payload = [
-                'multipart' => [
-                    [
-                        'name' => 'file',
-                        'contents' => $stream,
-                        'filename' => $filename,
-                        'headers' => [
-                            'Content-Type' => $mimeType,
-                        ],
-                    ],
-                    [
-                        'name' => 'storage_uuid',
-                        'contents' => $this->storageUuid,
+        $payload = [
+            'multipart' => [
+                [
+                    'name' => 'file',
+                    'contents' => $stream,
+                    'filename' => $filename,
+                    'headers' => [
+                        'Content-Type' => $mimeType,
                     ],
                 ],
+                [
+                    'name' => 'storage_uuid',
+                    'contents' => $this->storageUuid,
+                ],
+            ],
+        ];
+
+        if ($displayName !== null && $displayName !== '') {
+            $payload['multipart'][] = [
+                'name' => 'display_name',
+                'contents' => $displayName,
             ];
-
-            if ($displayName !== null && $displayName !== '') {
-                $payload['multipart'][] = [
-                    'name' => 'display_name',
-                    'contents' => $displayName,
-                ];
-            }
-
-            if ($metadata !== null) {
-                $payload['multipart'][] = [
-                    'name' => 'metadata',
-                    'contents' => Json::encode($metadata),
-                ];
-            }
-
-            $resolvedStoragePath = $storagePath ?? $this->config->defaultStoragePath();
-
-            if ($resolvedStoragePath !== null && $resolvedStoragePath !== '') {
-                $payload['multipart'][] = [
-                    'name' => 'storage_path',
-                    'contents' => $resolvedStoragePath,
-                ];
-            }
-
-            $response = $this->request('POST', '/files', $payload);
-            $decoded = $this->decodeJson($response);
-
-            return $this->mapUploadResult($decoded['data'] ?? $decoded);
-        } finally {
-            fclose($stream);
         }
+
+        if ($metadata !== null) {
+            $payload['multipart'][] = [
+                'name' => 'metadata',
+                'contents' => Json::encode($metadata),
+            ];
+        }
+
+        $resolvedStoragePath = $storagePath ?? $this->config->defaultStoragePath();
+
+        if ($resolvedStoragePath !== null && $resolvedStoragePath !== '') {
+            $payload['multipart'][] = [
+                'name' => 'storage_path',
+                'contents' => $resolvedStoragePath,
+            ];
+        }
+
+        $response = $this->request('POST', '/files', $payload);
+        $decoded = $this->decodeJson($response);
+
+        return $this->mapUploadResult($decoded['data'] ?? $decoded);
     }
 
     public function downloadTo(string $fileUuid, string $destination, ?int $version = null): void
