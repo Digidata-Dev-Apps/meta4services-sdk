@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Meta4Services\CloudServices;
 
+use finfo;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\GuzzleException;
 use InvalidArgumentException;
@@ -258,37 +259,101 @@ final class CloudServicesClient
             throw new ValidationException(sprintf('Arquivo inválido: %s', $file));
         }
 
-        $payload = [
-            'multipart' => [
-                [
-                    'name' => 'file',
-                    'contents' => fopen($file, 'rb'),
-                    'filename' => basename($file),
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->file($file);
+
+        if ($mimeType === false || $mimeType === '') {
+            throw new ValidationException(sprintf(
+                'Não foi possível identificar o tipo do arquivo: %s',
+                $file
+            ));
+        }
+
+        $filename = $displayName !== null && $displayName !== ''
+            ? basename($displayName)
+            : basename($file);
+
+        if (pathinfo($filename, PATHINFO_EXTENSION) === '') {
+            $extension = match ($mimeType) {
+                'application/pdf' => 'pdf',
+                'image/jpg' => 'jpg',
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+                'image/webp' => 'webp',
+                'image/svg+xml' => 'svg',
+                'text/plain' => 'txt',
+                'text/csv' => 'csv',
+                'application/json' => 'json',
+                'application/zip' => 'zip',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+                default => null,
+            };
+
+            if ($extension !== null) {
+                $filename .= '.' . $extension;
+            }
+        }
+
+        $stream = fopen($file, 'rb');
+
+        if ($stream === false) {
+            throw new ValidationException(sprintf(
+                'Não foi possível abrir o arquivo: %s',
+                $file
+            ));
+        }
+
+        try {
+            $payload = [
+                'multipart' => [
+                    [
+                        'name' => 'file',
+                        'contents' => $stream,
+                        'filename' => $filename,
+                        'headers' => [
+                            'Content-Type' => $mimeType,
+                        ],
+                    ],
+                    [
+                        'name' => 'storage_uuid',
+                        'contents' => $this->storageUuid,
+                    ],
                 ],
-                [
-                    'name' => 'storage_uuid',
-                    'contents' => $this->storageUuid,
-                ],
-            ],
-        ];
+            ];
 
-        if ($displayName !== null && $displayName !== '') {
-            $payload['multipart'][] = ['name' => 'display_name', 'contents' => $displayName];
+            if ($displayName !== null && $displayName !== '') {
+                $payload['multipart'][] = [
+                    'name' => 'display_name',
+                    'contents' => $displayName,
+                ];
+            }
+
+            if ($metadata !== null) {
+                $payload['multipart'][] = [
+                    'name' => 'metadata',
+                    'contents' => Json::encode($metadata),
+                ];
+            }
+
+            $resolvedStoragePath = $storagePath ?? $this->config->defaultStoragePath();
+
+            if ($resolvedStoragePath !== null && $resolvedStoragePath !== '') {
+                $payload['multipart'][] = [
+                    'name' => 'storage_path',
+                    'contents' => $resolvedStoragePath,
+                ];
+            }
+
+            $response = $this->request('POST', '/files', $payload);
+            $decoded = $this->decodeJson($response);
+
+            return $this->mapUploadResult($decoded['data'] ?? $decoded);
+        } finally {
+            fclose($stream);
         }
-
-        if ($metadata !== null) {
-            $payload['multipart'][] = ['name' => 'metadata', 'contents' => Json::encode($metadata)];
-        }
-
-        $resolvedStoragePath = $storagePath ?? $this->config->defaultStoragePath();
-        if ($resolvedStoragePath !== null && $resolvedStoragePath !== '') {
-            $payload['multipart'][] = ['name' => 'storage_path', 'contents' => $resolvedStoragePath];
-        }
-
-        $response = $this->request('POST', '/files', $payload);
-        $decoded = $this->decodeJson($response);
-
-        return $this->mapUploadResult($decoded['data'] ?? $decoded);
     }
 
     public function downloadTo(string $fileUuid, string $destination, ?int $version = null): void
